@@ -65,42 +65,54 @@ which(user_score!=user_responses_main[,5])
 # ref : http://www.obscureanalytics.com/2012/07/04/to-the-basics-bayesian-inference-on-a-binomial-proportion/
 # What is the posterior distribution of toughness of a question
 # Prior for 1pt question
-# p1_easy is a beta-distribution with mean=0.6
+# p1_easy is a beta-distribution with mean=0.6, concentration=50(=a+b)
+# a=mean*concentration, b = concentration-a
 p1_easy_mean=0.6; # mean probability of 1pt question being easy = 0.6
+concentration_easy=50;
+a_easy=p1_easy_mean*concentration_easy;b_easy=concentration_easy-a_easy;
+
+# The prior distribution
+# the probability of solving this question correctly is a RV aroung p1_easy_mean
+plot(density(rbeta(10000,a_easy,b_easy)));
+
+num_solvedCorrectly=sum(user_isCorrect[,2]);
+num_notSolvedCorrectly=num_users-num_solvedCorrectly;
+
+a_easy_posterior=a_easy+num_solvedCorrectly;
+b_easy_posterior=b_easy+num_notSolvedCorrectly;
+plot(density(rbeta(10000,a_easy_posterior,b_easy_posterior)));
+
+posterior_shapevals<-function(mean,concentration,Y,N){
+  # Y = Responders ; N = sampleSize
+  # mean=a/a+b; concentration=a+b; refer wikipedia
+  a_prior=mean*concentration;b_prior=concentration-a_prior;
+  
+  a_posterior=a_prior+Y;
+  b_posterior=b_prior+N-Y;
+  return(c(a_posterior,b_posterior));
+}
+
+question_posterior<-function(quesNum,mean_prior){
+  Y=sum(user_isCorrect[,quesNum]);
+  return(posterior_shapevals(mean_prior,50,Y,num_users));
+}
 
 
-# Prior for 2pt question
-p2_medium=0.6; # probability of 2pt question being easy = 0.6
-p2_notmedium=1-p2_medium;
+plot(density(rbeta(1000,30,20)),col="green",cex=5);
+par(new=TRUE);
+plot(density(rbeta(1000,35,15)));
 
-# Prior for 3pt question
-p3_hard=0.6; # probability of 3pt question being easy = 0.6
-p3_nothard=1-p3_hard;
 
+df<-gather(data.frame(priori=rbeta(1000,30,20),posteriori=rbeta(1000,35,15)))
+gg<-ggplot(df);
+gg+geom_density(aes(x=value,color=key),size=2)+
+  xlim(0,1)+theme_bw()+
+  xlab("Probability of answering correctly")+ylab("")
+  
+
+user_index=1;
 easy_questionIndex<-which(vec_QuesPoints==1);
 medium_questionIndex<-which(vec_QuesPoints==2);
 hard_questionIndex<-which(vec_QuesPoints==3);
 
-
-i_priorToughness<-c(p1_easy,p1_medium,p1_hard)
-num_solvedCorrectly=sum(user_isCorrect[,2]);
-num_notSolvedCorrectly=num_users-num_solvedCorrectly;
-
-p_easy<-i_priorToughness[0];
-p_medium<-i_priorToughness[1];
-p_hard<-i_priorToughness[2];
-
-# add choose so that number large numbers multiplied with small numbers
-v1=choose(num_users,num_solvedCorrectly)*(p_easy^num_solvedCorrectly)*((1-p_easy)^num_notSolvedCorrectly);
-v2=(p_medium^num_solvedCorrectly)*((1-p_medium)^num_notSolvedCorrectly);
-v3=(p_hard^num_solvedCorrectly)*((1-p_hard)^num_notSolvedCorrectly);
-sum=v1+v2+v3;
-print(paste(v1," ",v2," ",v3));
-
-a<-question_posteriorToughness(2,c(0.6,0.2,0.2))
-
-
-
-
-
-
+num_solvedCorrectly=sum(user_isCorrect[user_index,easy_questionIndex])
