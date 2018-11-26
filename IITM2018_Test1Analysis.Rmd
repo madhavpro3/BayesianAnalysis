@@ -102,3 +102,11 @@ for(q in questions){
 #grid.arrange(plots[1],plots[2])
 
 ```
+
+TODO :
+
+  * Explanation of conjugate pair
+  * table showing prior category of question and posterior category
+  * Note on the tight CrI
+  * take samples and identify in howmany cases, the prior differs from posteriori
+  * Can we do MCMC and get a posterior distribution and compare the 2 posteriori's??
