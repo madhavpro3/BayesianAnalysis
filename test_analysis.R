@@ -98,6 +98,38 @@ question_posterior<-function(quesNum,mean_prior){
 }
 
 
+
+exp_prob=0.8;
+q=14;
+concentration=50;
+if(vec_QuesPoints[q]==2){
+  exp_prob=exp_medium;
+}else if(vec_QuesPoints[q]==3){
+  exp_prob=exp_hard;
+}
+
+belief<-c(exp_prob*concentration,(1-exp_prob)*concentration);
+postEvd<-question_posterior(q,exp_prob);
+
+df<-gather(data.frame(priori=rbeta(10000,belief[1],belief[2]),posteriori=rbeta(10000,postEvd[1],postEvd[2])));
+df <- df %>%
+  mutate(category=case_when(
+    value>=0.8 ~ "easy",
+    value<=0.4 ~ "hard",
+    TRUE ~ "medium"
+    ))
+df$category<-factor(df$category,levels=c("easy","medium","hard"));
+df$key<-factor(df$key,levels=c("priori","posteriori"));
+
+title_txt=paste("Ques ",q);
+gg<-ggplot(df);
+gg+geom_bar(aes(x=category,fill=key),alpha=0.7)+
+  facet_grid(.~key)+
+  theme_bw()+
+  labs(title=title_txt,xlab="Probability of answering correctly",ylab="")+
+  guides(fill=FALSE)
+
+
 plot(density(rbeta(1000,30,20)),col="green",cex=5);
 par(new=TRUE);
 plot(density(rbeta(1000,35,15)));
@@ -109,7 +141,15 @@ gg+geom_density(aes(x=value,color=key),size=2)+
   xlim(0,1)+theme_bw()+
   xlab("Probability of answering correctly")+ylab("")
   
+# Priori categorization
+priori_samples<-rbeta(100,30,20)
+p_priori_easy<-sum(priori_samples>=0.8)/length(priori_samples)
+p_priori_hard<-sum(priori_samples<=0.4)/length(priori_samples)
+p_priori_medium<-1-p_priori_easy_p_priori_hard
 
+hist(priori_samples,freq=TRUE,breaks=c(0,0.4,0.8,1))
+  
+  
 user_index=1;
 easy_questionIndex<-which(vec_QuesPoints==1);
 medium_questionIndex<-which(vec_QuesPoints==2);
