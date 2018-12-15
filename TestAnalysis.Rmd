@@ -1,0 +1,144 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE,message=FALSE,cache = FALSE)
+```
+
+```{r echo=FALSE}
+library(tidyverse)
+
+user_responses<-read.csv("dataset_user_responses.csv");
+df_ques_points<-read.csv("dataset_question_points.csv",as.is=2);
+
+
+## checking if inputting is done the right way
+candidate_score<-apply(user_responses[,1:20],1,function(row){
+  sum((row==df_ques_points$CorrectAns)*df_ques_points$Points);
+});
+# sum(candidate_score==user_responses$PointsReceived);
+
+num_users<-nrow(user_responses);
+num_questions<-ncol(user_responses);
+
+easy_questionIndex<-which(df_ques_points$Points==1);
+medium_questionIndex<-which(df_ques_points$Points==2);
+hard_questionIndex<-which(df_ques_points$Points==3);
+
+exp_easy=0.8;
+exp_medium=0.6;
+exp_hard=0.4;
+concentration=50;# a+b
+```
+
+```{r}
+posterior_shapevals<-function(mean,Y,N){
+  # Y = Responders ; N = sampleSize
+  # mean=a/a+b; concentration=a+b; refer wikipedia
+  a_prior=mean*concentration;b_prior=concentration-a_prior;
+  
+  a_posterior=a_prior+Y;
+  b_posterior=b_prior+N-Y;
+  return(c(a_posterior,b_posterior));
+}
+
+question_posterior<-function(quesNum,mean_prior){
+  Y=sum(user_responses[,quesNum]==df_ques_points$CorrectAns[quesNum]);
+  return(posterior_shapevals(mean_prior,Y,num_users));
+}
+
+
+```
+
+## Prior distribution for probability of solving question correctly
+
+Expected probability of answering correctly (from Prior belief) are 
+
+  * An easy question, Exp =  `r exp_easy`
+  * A medium question, Exp = `r exp_medium`
+  * A hard question, Exp= `r exp_hard`
+
+## Probability distributions for solving correctly
+```{r, fig.width=4,fig.height=2}
+df_params<-data.frame(questionNum=1:20,priori_params="",posterior_params="");
+df_params$priori_params<-as.character(df_params$priori_params);
+df_params$posterior_params<-as.character(df_params$posterior_params);
+
+questions<-1:20
+plots<-list();
+for(q in questions){
+  exp_prob=0.8;
+  if(df_ques_points[q,3]==2){
+    exp_prob=exp_medium;
+  }
+  else if(df_ques_points[q,3]==3){
+    exp_prob=exp_hard;
+  }
+    
+  belief<-c(exp_prob*concentration,(1-exp_prob)*concentration);
+  postEvd<-question_posterior(q,exp_prob);
+
+  df_params[q,2]=paste0(belief[1],",",belief[2]);
+  df_params[q,3]=paste0(postEvd[1],",",postEvd[2]);
+  
+  df<-gather(data.frame(priori=rbeta(10000,belief[1],belief[2]),posteriori=rbeta(10000,postEvd[1],postEvd[2])));
+
+  title_txt=paste("Ques ",q);
+  gg<-ggplot(df);
+  g<-gg+geom_density(aes(x=value,color=key),size=2)+
+    xlim(0,1)+theme_bw()+
+    labs(title=title_txt,xlab="Probability of answering correctly",ylab="");
+
+  print(g);
+}
+```
+
+## Difficulty categorization of Question
+```{r, fig.width=4,fig.height=2}
+
+questions<-1:20
+plots<-list();
+for(q in questions){
+  exp_prob=0.8;
+  if(df_ques_points[q,3]==2){
+    exp_prob=exp_medium;
+  }
+  else if(df_ques_points[q,3]==3){
+    exp_prob=exp_hard;
+  }
+    
+  belief<-c(exp_prob*concentration,(1-exp_prob)*concentration);
+  postEvd<-question_posterior(q,exp_prob);
+
+  N=10000;
+  samples_prior<-rbeta(N,belief[1],belief[2]);
+  samples_posterior<-rbeta(N,postEvd[1],postEvd[2]);
+  
+  df_barchart<-data.frame(key=c("priori","priori","priori","posteriori","posteriori","posteriori"),category=c("easy","medium","hard","easy","medium","hard"),proportion=c(0,0,0,0,0,0));
+  
+  df_barchart$category<-factor(df_barchart$category,levels=c("easy","medium","hard"));
+  df_barchart$key<-factor(df_barchart$key,levels=c("priori","posteriori"));
+
+  df_barchart[1,3]=sum((samples_prior>=0.8))/N;
+  df_barchart[3,3]=sum((samples_prior<=0.4))/N;
+  df_barchart[2,3]=1-df_barchart[1,3]-df_barchart[3,3];
+  
+  df_barchart[4,3]=sum((samples_posterior>=0.8))/N;
+  df_barchart[6,3]=sum((samples_posterior<=0.4))/N;
+  df_barchart[5,3]=1-df_barchart[4,3]-df_barchart[6,3];
+
+  title_txt=paste("Ques ",q);
+  gg<-ggplot(df_barchart);
+  g<-gg+geom_col(aes(x=category,y=proportion,fill=key),alpha=0.7)+
+    facet_grid(.~key)+
+    theme_bw()+
+    labs(title=title_txt,xlab="Probability of answering correctly",ylab="")+
+    guides(fill=FALSE);
+
+    print(g);
+}
+```
