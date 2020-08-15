@@ -1,4 +1,3 @@
 # BayesianAnalysis of test scores
 
-Visit the blog post https://mybookspeaks.blogspot.com/
-
+This code is for a post on my blog https://meddlingmadller.blogspot.com/2018/
